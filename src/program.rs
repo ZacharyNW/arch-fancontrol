@@ -39,6 +39,8 @@ fn handle_selection_error(module_index: usize, hwmons: &[Hwmon]) -> Result<usize
     unreachable!()
 }
 
+
+
 #[derive(Debug)]
 pub enum SelectError {
     Io(io::Error),

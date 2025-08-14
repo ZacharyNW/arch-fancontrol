@@ -41,7 +41,10 @@ fn main() {
 
     let val = terminal_utils::read_string_default("Attempt auto pairing? (Y/n)", "Y");
 
-    if val == "Y" || val == "y" {
+    println!("{val}");
+    println!("{}", val == "y");
+
+    if val.trim() == "Y" || val.trim() == "y" {
         hwmon.try_pair_fans_to_pwm();
     }
 }

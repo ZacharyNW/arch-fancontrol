@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use crate::{hwmon::pwm::Pwm, path_helpers};
 
+#[derive(Clone)]
 pub struct Fan {
     file_path: PathBuf,
     pub index: String,
@@ -48,9 +49,8 @@ impl Fan {
         get_speed(self.get_input_path())
     }
 
-    pub fn get_formatted_speed(&mut self) -> String {
-        self.update_speed();
-        return format!("{} RPM", &self.current_speed);
+    pub fn get_formatted_speed(&self) -> String {
+        return format!("{} RPM", &self.get_speed());
     }
 
     pub fn update_speed(&mut self){

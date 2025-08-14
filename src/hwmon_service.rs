@@ -53,17 +53,3 @@ fn collect_hwmon() -> io::Result<Vec<Hwmon>> {
     list.sort_by(|a, b| a.path().cmp(&b.path()));
     return Ok(list);
 }
-
-fn basename<'a>(p: &'a Path) -> &'a str {
-    p.file_name().and_then(|s| s.to_str()).unwrap_or("")
-}
-
-fn is_file(p: &Path) -> bool {
-    fs::metadata(p).map(|m| m.is_file()).unwrap_or(false)
-}
-
-fn extract_index(name: &str, prefix: &str, suffix: &str) -> Option<String> {
-    if !name.starts_with(prefix) || !name.ends_with(suffix) { return None; }
-    let mid = &name[prefix.len()..name.len()-suffix.len()];
-    if mid.chars().all(|c| c.is_ascii_digit()) { Some(mid.to_string()) } else { None }
-}

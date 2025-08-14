@@ -1,4 +1,5 @@
-use std::io::{self, Write};
+use std::{io::{self, stdout, Write}, sync::{atomic::{AtomicBool, Ordering}, Arc}, thread, time::Duration};
+use crate::hwmon::fans::Fan;
 
 pub fn read_usize(prompt: &str) -> usize {
     loop {
@@ -46,4 +47,29 @@ pub fn wait_for_user_input() {
 
     let mut s = String::new();
     io::stdin().read_line(&mut s).unwrap();
+}
+
+pub fn spawn_live_fan_speed_thread(fans: Arc<Vec<Fan>>, stop_flag: &Arc<AtomicBool>){
+    let fans_clone = Arc::clone(&fans);
+    let stop_flag_clone = Arc::clone(&stop_flag);
+
+    let _ = thread::spawn(move || -> std::io::Result<()> {
+        loop {
+            if stop_flag_clone.load(Ordering::Relaxed) {
+                break;
+            }
+
+            std::process::Command::new("clear").status().unwrap();
+            println!("Fan Speeds (refresh: 100ms)\n");
+
+            for fan in fans_clone.iter() {
+                println!("{}: {}", fan.label, fan.get_formatted_speed());
+            }
+
+            stdout().flush().ok();
+            thread::sleep(Duration::from_millis(100));
+        }
+
+        Ok(())
+    });
 }

@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{fmt::{Display, Formatter}, fs, path::{Path, PathBuf}, thread, time::Duration};
+use std::{fmt::{Display, Formatter}, fs, io::Write, path::{Path, PathBuf}, sync::{atomic::{AtomicBool, Ordering}, Arc}, thread, time::Duration};
 
 use crate::{hwmon::{fans::Fan, pwm::Pwm, temp::Temp}, path_helpers::{self, ReadTrimmed}, terminal_utils};
 
@@ -36,11 +36,15 @@ impl Hwmon {
             println!("Setting {} to max speed...", pwm.name);
             pwm.write_speed(255);
 
+            let stop_flag = Arc::new(AtomicBool::new(false));
+            let fans_arc = Arc::new(self.fans.clone());
+
+            terminal_utils::spawn_live_fan_speed_thread(fans_arc, &stop_flag);
             thread::sleep(Duration::from_secs(5));
 
             let mut diff_requirement = 400;
+
             loop {
-                println!("Searching for paired fan...");
                 let mut possible_fans = self.fans
                 .iter()
                 .enumerate()
@@ -54,17 +58,22 @@ impl Hwmon {
                if let Some(i) = unique_index {
                     let fan: &mut Fan = &mut self.fans[i];
                     fan.paired_pwm = Some(pwm.clone());
-                    println!("pwm {} matched to fan {}", pwm.name, fan.label);
-                    terminal_utils::wait_for_user_input();
+                    stop_flag.store(true, Ordering::Relaxed);
+
+                    println!("{} matched to fan {}", pwm.name, fan.label);
                     pwm.write_speed(150);
+                    terminal_utils::wait_for_user_input();
                     break;
                } else if diff_requirement > 1000 {
+                    stop_flag.store(true, Ordering::Relaxed);
                     println!("Unable to match {}", pwm.name);
-                    terminal_utils::wait_for_user_input();
+                    
                     pwm.write_speed(150);
+                    terminal_utils::wait_for_user_input();
                     break;
                } else {
                     diff_requirement += 100;
+                    std::io::stdout().flush().unwrap();
                }
             }
         }
