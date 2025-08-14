@@ -1,7 +1,7 @@
 use core::fmt;
 use std::{fmt::{Display, Formatter}, fs, path::{Path, PathBuf}, thread, time::Duration};
 
-use crate::{hwmon::{fans::Fan, pwm::Pwm, temp::Temp}, path_helpers::{self, ReadTrimmed}};
+use crate::{hwmon::{fans::Fan, pwm::Pwm, temp::Temp}, path_helpers::{self, ReadTrimmed}, terminal_utils};
 
 pub struct Hwmon {
     path: PathBuf,
@@ -32,21 +32,40 @@ impl Hwmon {
         }
 
         for pwm in self.pwms.iter() {
+            std::process::Command::new("clear").status().unwrap();
+            println!("Setting {} to max speed...", pwm.name);
             pwm.write_speed(255);
 
             thread::sleep(Duration::from_secs(5));
 
-            let mut matched = false;
-            for fan in self.fans.iter_mut() {
-                if fan.get_speed().abs_diff(fan.current_speed) > 400{
-                    println!("pwm {} matched to fan {}", pwm.name, fan.label);
-                    matched = true;
-                    fan.paired_pwm = Some(pwm.clone());
-                }
+            let mut diff_requirement = 400;
+            loop {
+                println!("Searching for paired fan...");
+                let mut possible_fans = self.fans
+                .iter()
+                .enumerate()
+                .filter(|(_, fan)| fan.get_speed().abs_diff(fan.current_speed) > diff_requirement);
 
-                if !matched {
+               let unique_index = match (possible_fans.next(), possible_fans.next()) {
+                (Some((i, _)), None) => Some(i),
+                _ => None
+               };
+
+               if let Some(i) = unique_index {
+                    let fan: &mut Fan = &mut self.fans[i];
+                    fan.paired_pwm = Some(pwm.clone());
+                    println!("pwm {} matched to fan {}", pwm.name, fan.label);
+                    terminal_utils::wait_for_user_input();
                     pwm.write_speed(150);
-                }
+                    break;
+               } else if diff_requirement > 1000 {
+                    println!("Unable to match {}", pwm.name);
+                    terminal_utils::wait_for_user_input();
+                    pwm.write_speed(150);
+                    break;
+               } else {
+                    diff_requirement += 100;
+               }
             }
         }
     }

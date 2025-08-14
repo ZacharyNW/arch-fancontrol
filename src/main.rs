@@ -32,16 +32,12 @@ fn main() {
     };
 
     hwmon.initialize();
+    hwmon.set_all_pwm(100);
 
     hwmon.print_temps();
     hwmon.print_fans();
     hwmon.print_pwms();
 
-    let val = terminal_utils::read_string_default("Set all fans to max? (Y/n)", "Y");
-
-    if val == "Y" || val == "y" {
-        hwmon.set_all_pwm(150);
-    }
 
     let val = terminal_utils::read_string_default("Attempt auto pairing? (Y/n)", "Y");
 

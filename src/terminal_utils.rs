@@ -40,3 +40,10 @@ pub fn read_string(prompt: &str) -> String {
         }
     }
 }
+
+pub fn wait_for_user_input() {
+    println!("Press any key to continue...");
+
+    let mut s = String::new();
+    io::stdin().read_line(&mut s).unwrap();
+}
