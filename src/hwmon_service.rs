@@ -9,6 +9,12 @@ impl HwmonService {
     pub fn new() -> Self {
         Self {hwmons: get_hwmons()}
     }
+
+    pub fn initialize_hwmons(&mut self) {
+        for hwmon in self.hwmons.iter_mut() {
+            hwmon.initialize();
+        }
+    }
 }
 
 

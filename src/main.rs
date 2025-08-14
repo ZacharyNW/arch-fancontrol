@@ -13,7 +13,10 @@ fn main() {
         restart_as_root();
     }
 
+    terminal_utils::clear_terminal();
+
     let mut hwmon_service = HwmonService::new();
+    hwmon_service.initialize_hwmons();
 
     let hwmon_index = match program::print_initial_select(&hwmon_service.hwmons) {
         Ok(h) => h,
@@ -22,6 +25,8 @@ fn main() {
             std::process::exit(1);
         }
     };
+
+    terminal_utils::clear_terminal();
 
     let hwmon = match hwmon_service.hwmons.get_mut(hwmon_index) {
         Some(h) => h,
@@ -38,15 +43,13 @@ fn main() {
     hwmon.print_fans();
     hwmon.print_pwms();
 
-
-    let val = terminal_utils::read_string_default("Attempt auto pairing? (Y/n)", "Y");
-
-    println!("{val}");
-    println!("{}", val == "y");
-
-    if val.trim() == "Y" || val.trim() == "y" {
+    if terminal_utils::get_yes_no_selection_default_yes("Attempt auto pairing?") {
         hwmon.try_pair_fans_to_pwm();
+    } else {
+        hwmon.manual_pair_fan_to_pwm();
     }
+
+    terminal_utils::clear_terminal();
 }
 
 #[cfg(unix)]

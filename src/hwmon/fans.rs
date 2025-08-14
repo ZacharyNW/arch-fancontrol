@@ -5,7 +5,7 @@ use crate::{hwmon::pwm::Pwm, path_helpers};
 #[derive(Clone)]
 pub struct Fan {
     file_path: PathBuf,
-    pub index: String,
+    pub index: i32,
     pub label: String,
     pub min_speed_rpm: i32,
     pub max_speed_rpm: i32,
@@ -16,7 +16,7 @@ pub struct Fan {
 impl Fan {
     pub fn new(path: PathBuf) -> Self {
         let p = path.clone();
-        Self {file_path: path, index: "".into(), label: "".into(), max_speed_rpm: 0, min_speed_rpm: 0, current_speed: get_speed(p), paired_pwm: None }
+        Self {file_path: path, index: 0, label: "".into(), max_speed_rpm: 0, min_speed_rpm: 0, current_speed: get_speed(p), paired_pwm: None }
     }
 
     pub fn with_label(mut self, s: String) -> Self {
@@ -25,7 +25,7 @@ impl Fan {
     }
 
     pub fn with_index(mut self, i: String) -> Self {
-        self.index = i;
+        self.index = i.parse::<i32>().unwrap_or(0);
         return self;
     }
 
@@ -51,6 +51,10 @@ impl Fan {
 
     pub fn get_formatted_speed(&self) -> String {
         return format!("{} RPM", &self.get_speed());
+    }
+
+    pub fn get_formatted_cached_speed(&self) -> String {
+        return format!("{} RPM", &self.current_speed);
     }
 
     pub fn update_speed(&mut self){

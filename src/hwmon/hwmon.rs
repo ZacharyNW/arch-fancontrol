@@ -16,6 +16,12 @@ impl Hwmon {
         Self {path: path, name: name, fans: Vec::new(), temps: Vec::new(), pwms: Vec::new()}
     }
 
+    pub fn initialize(&mut self) {
+        self.initialize_fans();
+        self.initialize_pwms();
+        self.initialize_temps();
+    }
+
     pub fn path(&self) -> &Path {
         self.path.as_path()
     }
@@ -32,14 +38,15 @@ impl Hwmon {
         }
 
         for pwm in self.pwms.iter() {
-            std::process::Command::new("clear").status().unwrap();
+            terminal_utils::clear_terminal();
             println!("Setting {} to max speed...", pwm.name);
             pwm.write_speed(255);
 
-            let stop_flag = Arc::new(AtomicBool::new(false));
+  
             let fans_arc = Arc::new(self.fans.clone());
+            let header = Arc::new(format!("Setting {} to max speed...", pwm.name).to_string());
+            let stop_flag = terminal_utils::spawn_live_fan_speed_thread(fans_arc, header);
 
-            terminal_utils::spawn_live_fan_speed_thread(fans_arc, &stop_flag);
             thread::sleep(Duration::from_secs(5));
 
             let mut diff_requirement = 400;
@@ -61,14 +68,14 @@ impl Hwmon {
                     stop_flag.store(true, Ordering::Relaxed);
 
                     println!("{} matched to fan {}", pwm.name, fan.label);
-                    pwm.write_speed(150);
+                    pwm.write_speed(100);
                     terminal_utils::wait_for_user_input();
                     break;
                } else if diff_requirement > 1000 {
                     stop_flag.store(true, Ordering::Relaxed);
                     println!("Unable to match {}", pwm.name);
                     
-                    pwm.write_speed(150);
+                    pwm.write_speed(100);
                     terminal_utils::wait_for_user_input();
                     break;
                } else {
@@ -79,10 +86,41 @@ impl Hwmon {
         }
     }
 
-    pub fn initialize(&mut self) {
-        self.initialize_fans();
-        self.initialize_pwms();
-        self.initialize_temps();
+    pub fn manual_pair_fan_to_pwm(&mut self) {
+        for fan in self.fans.iter_mut() {
+            fan.update_speed();
+        }
+
+        for pwm in self.pwms.iter() {
+            terminal_utils::clear_terminal();
+            println!();
+            pwm.write_speed(255);
+
+            let fans_arc = Arc::new(self.fans.clone());
+            let header = Arc::new(format!("Setting {} to max speed...", pwm.name).to_string());
+            let (stop_flag, index_receiver) = terminal_utils::spawn_live_fan_speed_thread_with_selection(fans_arc, header);
+
+            if let Ok(i) = index_receiver.recv() {
+                if let Some(fan) = &mut self.fans.iter_mut().find(|f| f.index == i32::try_from(i).expect("Value too large for i32")) {
+                    fan.paired_pwm = Some(pwm.clone());
+                    pwm.write_speed(100);
+                    stop_flag.store(true, Ordering::Relaxed);
+
+                    println!("Paired {} to {}", pwm.name, fan.label);
+                    terminal_utils::wait_for_user_input();
+                    continue;
+                } else {
+                    println!("Error pairing fan...");
+                    terminal_utils::wait_for_user_input();
+                    continue;
+                };
+            } else {
+                println!("{} not paried to any fan", pwm.name);
+                pwm.write_speed(100);
+                terminal_utils::wait_for_user_input();
+                continue;
+            }
+        }
     }
 
     pub fn initialize_fans(&mut self) {

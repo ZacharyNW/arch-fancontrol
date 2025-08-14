@@ -8,9 +8,26 @@ pub fn print_initial_select(hwmons: &[Hwmon]) -> Result<usize, SelectError> {
         return Err(SelectError::Io(io::Error::new(io::ErrorKind::NotSeekable, "no hwmons found")));
     }
 
+    let fan_modules: Vec<_> = hwmons.iter().filter(|h| h.fans.len() > 0).collect();
+
+    if fan_modules.len() == 1 {
+        let fan_module = fan_modules[0];
+
+        match hwmons.iter().position(|module| module.path() == fan_module.path()) {
+            Some(i) => {
+                if terminal_utils::get_yes_no_selection_default_yes(format!("Only one module with fans found, continue with {}?", fan_module.name).as_str()) {
+                    return Ok(i)
+                } else {
+                    terminal_utils::clear_terminal();
+                }
+            },
+            _ => {}
+        }
+    }
+
     println!("Select a module: ");
     for (i, h) in hwmons.iter().enumerate() {
-        println!("{i}: {}", h.name);
+        println!("{i}: {} ({} fans, {} temp sensors, {} pwm inputs)", h.name, h.fans.len(), h.temps.len(), h.pwms.len());
     }
 
     let module_index = terminal_utils::read_usize("");
